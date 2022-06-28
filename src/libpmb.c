@@ -721,7 +721,7 @@ static int startup()
 // 2880 firmware upload (TODO: This is a PAL image?)
 	{
 		unsigned char buffer[8192];
-		int fd = open("2880fw.bin",O_RDONLY);
+		int fd = open("../blob/2880fw.bin", O_RDONLY);
 		int len,ret=0;
 		if (fd < 0) {
 			fprintf(stderr,"Cannot open 2880 firmware image\n");
@@ -1010,7 +1010,7 @@ static int startup()
 	// 2880 firmware upload (NTSC image, right?)
 	{
 		unsigned char buffer[8192];
-		int fd = open("2880ntscfw.bin",O_RDONLY);
+		int fd = open("../blob/2880ntscfw.bin",O_RDONLY);
 		int len,ret=0;
 		if (fd < 0) {
 			fprintf(stderr,"Cannot open 2880 NTSC firmware image\n");
