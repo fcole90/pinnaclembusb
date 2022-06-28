@@ -1,20 +1,32 @@
+list:
+	lsusb -v
+
 all: pmbplay pmbpipe
 
-pmbplay: pmbplay.o libpmb.o
-	gcc -lusb -o pmbplay pmbplay.o libpmb.o
+bin:
+	mkdir ./bin
 
-pmbpipe: pmbpipe.o libpmb.o
-	gcc -lusb -o pmbpipe pmbpipe.o libpmb.o
+out:
+	mkdir ./out
 
-pmbplay.o: pmbplay.c
-	gcc -c -o pmbplay.o pmbplay.c
+pmbplay: pmbplay.o libpmb.o bin
+	gcc -o bin/pmbplay out/pmbplay.o out/libpmb.o -lusb
 
-pmbpipe.o: pmbpipe.c
-	gcc -c -o pmbpipe.o pmbpipe.c
+pmbpipe: pmbpipe.o libpmb.o bin
+	gcc -o bin/pmbpipe out/pmbpipe.o out/libpmb.o -lusb
 
-libpmb.o: libpmb.c
-	gcc -c -o libpmb.o libpmb.c
+libpmb: libpmb.o bin
+	gcc -o bin/libpmb out/libpmb.o -lusb
+
+pmbplay.o: src/pmbplay.c out
+	gcc -c -o out/pmbplay.o src/pmbplay.c
+
+pmbpipe.o: src/pmbpipe.c out
+	gcc -c -o out/pmbpipe.o src/pmbpipe.c
+
+libpmb.o: src/libpmb.c out
+	gcc -c -o out/libpmb.o src/libpmb.c -lusb
 
 clean:
-	rm -f *.o pmbplay
+	rm -rf ./out ./bin 
 

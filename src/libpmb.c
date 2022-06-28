@@ -1122,52 +1122,94 @@ int PinnacleMovieBoxInit()
 	/* scan the buses for a Pinnacle MovieBox USB */
 	while (!found && dev_bus) {
 		dev_dev = dev_bus->devices;
+		
 		while (!found && dev_dev) {
 			dev_desc = &dev_dev->descriptor;
 			dev_conf =  dev_dev->config;
+			fprintf(stdout, "Bus %d\tidVendor %#x\tidProduct %#x\t\t", 
+				dev_dev->bus->location, 
+				dev_desc->idVendor,
+				dev_desc->idProduct
+			);
 
 			/* we're looking for a USB 2.0 device made by Pinnacle systems. */
-			if (	dev_desc->bcdUSB == 0x200 &&		// USB 2.0
-				dev_desc->bDeviceClass == 0 &&		// Interface class
-				dev_desc->bDeviceSubClass == 0 &&
-				dev_desc->bDeviceProtocol == 0 &&
-				dev_desc->idVendor == 0x2304 &&		// Pinnacle Systems, Inc.
-				dev_desc->idProduct == 0x0204 &&	// MovieBox USB
-				dev_desc->iManufacturer == 1 &&		// Pinnacle Systems
-				dev_desc->iProduct == 2 &&		// MovieBox USB
-				dev_desc->bNumConfigurations == 1 &&
-				dev_conf->iConfiguration == 0) {
-				if (dev_conf->interface->num_altsetting > 0)
+			if (
+				// dev_desc->bcdUSB == 0x200 &&	      // USB 2.0
+				// dev_desc->bDeviceClass == 0 &&		  // Interface class
+				// dev_desc->bDeviceSubClass == 0 &&
+				// dev_desc->bDeviceProtocol == 0 &&
+				dev_desc->idVendor == 0x2304 &&		  // Pinnacle Systems, Inc.
+				(
+					dev_desc->idProduct == 0x0223 ||  // DazzleTV Sat BDA Device
+					dev_desc->idProduct == 0x0204     // MovieBox USB
+				) &&	
+				dev_desc->iManufacturer == 1 &&		  // Pinnacle Systems
+				dev_desc->iProduct == 2 //&&		      // MovieBox USB, DazzleTV Sat BDA Device
+				// dev_desc->bNumConfigurations == 1 &&
+				// dev_conf->iConfiguration == 0
+			) {
+				fprintf(stdout, "Passed check\n");
+				if (dev_conf->interface->num_altsetting > 0) {
 					dev_if = dev_conf->interface->altsetting;
+					fprintf(stdout, "\tOK\tAltsetting > 0\n");
+				}
+			} else {
+				dev_if = NULL;
+				fprintf(stdout, "\n");
 			}
-			if (	dev_if != NULL &&
+
+			if (	
+				dev_if != NULL &&
 				dev_if->bInterfaceClass == 255 &&
 				dev_if->iInterface == 0 &&
-				dev_if->bNumEndpoints == 4) {
-				int i;
-
-				for (i=0;i < 2;i++) {
+				(
+					dev_if->bNumEndpoints == 3 ||
+					dev_if->bNumEndpoints == 4
+				)
+			) {
+				fprintf(stdout, "\tOK\tInterfaces and endpoints fit\n");
+				// Set all to NULL
+				for (int i=0; i < dev_if->bNumEndpoints; i++) {
 					dev_ep_out[i] = dev_ep_in[i] = NULL;
 				}
-				for (i=0;i < dev_if->bNumEndpoints;i++) {
+
+				// Now try to set values
+				for (int i=0; i < dev_if->bNumEndpoints; i++) {
 					struct usb_endpoint_descriptor *d = &dev_if->endpoint[i];
 
 					// all endpoints on these things are bulk transfers
-					if (d->bmAttributes != 2)
+					if (d->bmAttributes != 2) {
+						fprintf(stdout, "Hop");
 						continue;
-
+					}
+					
+					// TODO add handling for DazzleTV Sat BDA Device
+					// dev_desc->idProduct == 0x0223 ||  // DazzleTV Sat BDA Device
+					// dev_desc->idProduct == 0x0204     // MovieBox USB
+					fprintf(stdout, "\t\taddr:%#x\n", d->bEndpointAddress);
 					switch (d->bEndpointAddress) {
 						case 0x02:	dev_ep_out[0] = d;	break;
 						case 0x04:	dev_ep_out[1] = d;	break;
 						case 0x86:	dev_ep_in[0] = d;	break;
 						case 0x88:	dev_ep_in[1] = d;	break;
+						default:
+							fprintf(stdout, "\t\t -> No match for addr:%#x\n", d->bEndpointAddress);
 					}
 				}
 
-				if (	dev_ep_out[0] != NULL && dev_ep_in[0] != NULL &&
-					dev_ep_out[1] != NULL && dev_ep_in[1] != NULL) {
+				if (	
+					dev_ep_out[0] != NULL && dev_ep_in[0] != NULL &&
+					dev_ep_out[1] != NULL && dev_ep_in[1] != NULL
+				) {
 					found = 1;
+				} else {
+					fprintf(stderr, "\t->\t%d\tEP Out");
 				}
+			} else if (dev_if != NULL) {
+				// We found the device but something was wrong
+				fprintf(stdout, "\t%s\t%d\t dev_if->bInterfaceClass == 255 \n", dev_if->bInterfaceClass == 255 ? "OK" : "->", dev_if->bInterfaceClass);
+				fprintf(stdout, "\t%s\t%d\t dev_if->iInterface == 0 \n", dev_if->iInterface == 0 ? "OK" : "->", dev_if->iInterface);
+				fprintf(stdout, "\t%s\t%d\t dev_if->bNumEndpoints == 4 \n", dev_if->bNumEndpoints == 4 ? "OK" : "->", dev_if->bNumEndpoints);
 			}
 
 			if (!found)
@@ -1179,6 +1221,7 @@ int PinnacleMovieBoxInit()
 	}
 
 	if (!found)
+		fprintf(stderr,"Cannot find device\n");
 		return -1;
 
 	if (!(dev_handle = usb_open(dev_dev))) {
